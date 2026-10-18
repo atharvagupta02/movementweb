@@ -1,0 +1,48 @@
+// models/Bill.js
+import mongoose from "mongoose";
+
+const itemSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  qty: { type: Number, required: true },
+  price: { type: Number, required: true },
+});
+
+const billSchema = new mongoose.Schema(
+  {
+    billNumber: { type: String, required: true },
+    billType: {
+      type: String,
+      enum: ["Home", "Clinic"],
+      default: "Home",
+      required: true,
+    },
+    customer: { type: String, required: true },
+    date: { type: Date, required: true },
+    status: { type: String, enum: ["Cash", "Online"], default: "Cash" },
+    paymentStatus:{
+      type: String,
+      enum: ["Paid", "Unpaid"],
+      default: "Unpaid",
+      required: true,
+    },
+    items: [itemSchema],
+
+    //  amount
+    amountInWallet: { type: Number, required: true  , default: 0},
+    total: { type: Number, required: true },
+    advancePayment: { type: Number, default: 0 },
+
+    // Number of present/treatment days this bill covers. Used to compute how
+    // many days are still un-billed (remaining = total present days − Σ sessionsBilled).
+    sessionsBilled: { type: Number, default: 0 },
+
+
+    patientId: { type: mongoose.Schema.Types.ObjectId, ref: "Patient" },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+const Bill = mongoose.model("Bill", billSchema);
+export default Bill;
