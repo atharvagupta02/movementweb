@@ -1,5 +1,265 @@
+// // import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+// // import ProtectedRoute from "./routers/ProtectedRoute.jsx";
+// // import AuthPage from "./pages/AuthPage";
+// // import Navbar from "./Component/navbar.jsx";
+
+// // import Home from "./Component/Home";
+// // import Assessment from "./Component/Assessment";
+// // import Musculoskeletal from "./Component/Musculoskeletal";
+// // import Obesity from "./Component/Obesity";
+// // import Pilates from "./Component/Pilates";
+// // import TreatmentPlan from "./Component/TreatmentPlan";
+// // import Client from "./Component/Client";
+// // import Reports from "./Component/Reports";
+// // import Bill from "./Component/Bill";
+// // import Expenses from "./Component/Expenses";
+// // import Inventory from "./Component/Inventory";
+// // import Salary from "./Component/Salary";
+// // import Rent from "./Component/Rent";
+// // import Total from "./Component/Total";
+// // import Attendence from "./Component/Attendence";
+// // import PatientDetails from "./Component/PatientDetails.jsx";
+// // import EmployeeDetails from "./Component/EmployeeDetails.jsx";
+// // import { useState } from "react";
+// // import AllEnquiry from "./Component/AllEnquiry.jsx";
+// // import AllEmployee from "./Component/AllEmployee.jsx";
+// // import ProtectedRouteAdmin from "./routers/ProtectedRouteAdmin.jsx";
+// // import CreateBill from "./Component/CreateBill.jsx";
+// // import PatientAttendancePage from "./Component/PatientAttendancePage.jsx";
+// // import Enquiry from "./Component/Enquiry.jsx";
+// // import Newbill from "./Component/Newbill.jsx"
+// // function App() {
+// //   const [role, setRole] = useState("employee");
+// //   return (
+// //     <Router>
+// //       <Navbar />
+
+// //       <Routes>
+
+    
+
+// //         {/* PROTECTED */}
+// //         <Route
+// //           path="/"
+// //           element={
+// //             <ProtectedRoute>
+// //               <Home role={role} />
+// //             </ProtectedRoute>
+// //           }
+// //         />
+
+
+
+        
+// //         <Route
+// //           path="/allEnquiry"
+// //           element={
+// //             <ProtectedRoute>
+// //               <AllEnquiry />
+// //             </ProtectedRoute>
+// //           }
+          
+// //         />
+
+// // <Route
+// //           path="/Newbill"
+// //           element={
+// //             <ProtectedRoute>
+// //               <Newbill/>
+// //             </ProtectedRoute>
+// //           }
+          
+// //         />
+// //                 <Route
+// //           path="/Enquiry"
+// //           element={
+// //             <ProtectedRoute>
+// //               <Enquiry />
+// //             </ProtectedRoute>
+// //           }
+          
+// //         />
+// //         <Route
+// //           path="/allEmployee"
+// //           element={
+// //             <ProtectedRoute>
+// //               <ProtectedRouteAdmin>
+// //                 <AllEmployee />
+// //               </ProtectedRouteAdmin>
+// //             </ProtectedRoute>
+// //           }
+// //         />
+
+// //         <Route
+// //           path="/assessment"
+// //           element={
+// //             <ProtectedRoute>
+// //               <Assessment />
+// //             </ProtectedRoute>
+// //           }
+// //         />
+// //         <Route
+// //           path="/musculoskeletal"
+// //           element={
+// //             <ProtectedRoute>
+// //               <Musculoskeletal />
+// //             </ProtectedRoute>
+// //           }
+// //         />
+// //         <Route
+// //           path="/obesity"
+// //           element={
+// //             <ProtectedRoute>
+// //               <Obesity />
+// //             </ProtectedRoute>
+// //           }
+// //         />
+// //         <Route
+// //           path="/pilates"
+// //           element={
+// //             <ProtectedRoute>
+// //               <Pilates />
+// //             </ProtectedRoute>
+// //           }
+// //         />
+// //         <Route
+// //           path="/treatmentPlan"
+// //           element={
+// //             <ProtectedRoute>
+// //               <TreatmentPlan />
+// //             </ProtectedRoute>
+// //           }
+// //         />
+// //         <Route
+// //           path="/client"
+// //           element={
+// //             <ProtectedRoute>
+// //               <Client />
+// //             </ProtectedRoute>
+// //           }
+// //         />
+// //         <Route
+// //           path="/reports"
+// //           element={
+// //             <ProtectedRoute>
+// //               <Reports />
+// //             </ProtectedRoute>
+// //           }
+// //         >
+// //           <Route
+// //             index
+// //             element={
+// //               <div className="text-gray-500 text-lg">
+// //                 Select a report to view details
+// //               </div>
+// //             }
+// //           />
+// //           <Route
+// //             path="bill"
+// //             element={
+// //               <ProtectedRoute>
+// //                 <Bill />
+// //               </ProtectedRoute>
+// //             }
+// //           />
+// //           <Route
+// //             path="expenses"
+// //             element={
+// //               <ProtectedRoute>
+// //                 <Expenses />
+// //               </ProtectedRoute>
+// //             }
+// //           />
+// //           <Route
+// //             path="inventory"
+// //             element={
+// //               <ProtectedRoute>
+// //                 <Inventory />
+// //               </ProtectedRoute>
+// //             }
+// //           />
+// //           <Route
+// //             path="salary"
+// //             element={
+// //               <ProtectedRoute>
+// //                 <Salary />
+// //               </ProtectedRoute>
+// //             }
+// //           />
+// //           <Route
+// //             path="rent"
+// //             element={
+// //               <ProtectedRoute>
+// //                 <Rent />
+// //               </ProtectedRoute>
+// //             }
+// //           />
+// //           <Route
+// //             path="daily-attendance"
+// //             element={
+// //               <ProtectedRoute>
+// //                 <PatientAttendancePage />
+// //               </ProtectedRoute>
+// //             }
+// //           />
+// //           <Route
+// //             path="total"
+// //             element={
+// //               <ProtectedRoute>
+// //                 <Total />
+// //               </ProtectedRoute>
+// //             }
+// //           />
+// //         </Route>
+// //         <Route
+// //           path="/attendence"
+// //           element={
+// //             <ProtectedRoute>
+// //               <Attendence />
+// //             </ProtectedRoute>
+// //           }
+// //         />
+
+// //         <Route
+// //           path="/PatientDetails/:id"
+// //           element={
+// //             <ProtectedRoute>
+// //               <PatientDetails />
+// //             </ProtectedRoute>
+// //           }
+// //         />
+// //         <Route
+// //           path="/createBill"
+// //           element={
+// //             <ProtectedRoute>
+// //               <CreateBill />
+// //             </ProtectedRoute>
+// //           }
+// //         />
+// //         <Route
+// //           path="/EmployeeDetails/:id"
+// //           element={
+// //             <ProtectedRoute>
+// //               <EmployeeDetails role={role} />
+// //             </ProtectedRoute>
+// //           }
+// //         />
+// // </Routes>
+// //     </Router>
+// //   );
+// // }
+
+// // export default App;
+
+
+
+
 // import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+// import { useState } from "react";
+
 // import ProtectedRoute from "./routers/ProtectedRoute.jsx";
+// import ProtectedRouteAdmin from "./routers/ProtectedRouteAdmin.jsx";
+
 // import AuthPage from "./pages/AuthPage";
 // import Navbar from "./Component/navbar.jsx";
 
@@ -20,25 +280,28 @@
 // import Attendence from "./Component/Attendence";
 // import PatientDetails from "./Component/PatientDetails.jsx";
 // import EmployeeDetails from "./Component/EmployeeDetails.jsx";
-// import { useState } from "react";
 // import AllEnquiry from "./Component/AllEnquiry.jsx";
 // import AllEmployee from "./Component/AllEmployee.jsx";
-// import ProtectedRouteAdmin from "./routers/ProtectedRouteAdmin.jsx";
 // import CreateBill from "./Component/CreateBill.jsx";
 // import PatientAttendancePage from "./Component/PatientAttendancePage.jsx";
 // import Enquiry from "./Component/Enquiry.jsx";
-// import Newbill from "./Component/Newbill.jsx"
+// import Newbill from "./Component/Newbill.jsx";
+// import BackButton from "./BackButton";
 // function App() {
 //   const [role, setRole] = useState("employee");
+
 //   return (
 //     <Router>
 //       <Navbar />
 
 //       <Routes>
+//         {/* Authentication page */}
+//         <Route
+//   path="/auth"
+//   element={<AuthPage setRole={setRole} />}
+// />
 
-    
-
-//         {/* PROTECTED */}
+//         {/* Dashboard */}
 //         <Route
 //           path="/"
 //           element={
@@ -48,9 +311,7 @@
 //           }
 //         />
 
-
-
-        
+//         {/* Enquiries */}
 //         <Route
 //           path="/allEnquiry"
 //           element={
@@ -58,27 +319,27 @@
 //               <AllEnquiry />
 //             </ProtectedRoute>
 //           }
-          
 //         />
 
-// <Route
+//         <Route
 //           path="/Newbill"
 //           element={
 //             <ProtectedRoute>
-//               <Newbill/>
+//               <Newbill />
 //             </ProtectedRoute>
 //           }
-          
 //         />
-//                 <Route
+
+//         <Route
 //           path="/Enquiry"
 //           element={
 //             <ProtectedRoute>
 //               <Enquiry />
 //             </ProtectedRoute>
 //           }
-          
 //         />
+
+//         {/* Employee management - admin only */}
 //         <Route
 //           path="/allEmployee"
 //           element={
@@ -90,6 +351,7 @@
 //           }
 //         />
 
+//         {/* Assessment */}
 //         <Route
 //           path="/assessment"
 //           element={
@@ -98,6 +360,7 @@
 //             </ProtectedRoute>
 //           }
 //         />
+
 //         <Route
 //           path="/musculoskeletal"
 //           element={
@@ -106,6 +369,7 @@
 //             </ProtectedRoute>
 //           }
 //         />
+
 //         <Route
 //           path="/obesity"
 //           element={
@@ -114,6 +378,7 @@
 //             </ProtectedRoute>
 //           }
 //         />
+
 //         <Route
 //           path="/pilates"
 //           element={
@@ -122,6 +387,8 @@
 //             </ProtectedRoute>
 //           }
 //         />
+
+//         {/* Treatment and client management */}
 //         <Route
 //           path="/treatmentPlan"
 //           element={
@@ -130,6 +397,7 @@
 //             </ProtectedRoute>
 //           }
 //         />
+
 //         <Route
 //           path="/client"
 //           element={
@@ -138,6 +406,8 @@
 //             </ProtectedRoute>
 //           }
 //         />
+
+//         {/* Reports */}
 //         <Route
 //           path="/reports"
 //           element={
@@ -154,6 +424,7 @@
 //               </div>
 //             }
 //           />
+
 //           <Route
 //             path="bill"
 //             element={
@@ -162,6 +433,7 @@
 //               </ProtectedRoute>
 //             }
 //           />
+
 //           <Route
 //             path="expenses"
 //             element={
@@ -170,6 +442,7 @@
 //               </ProtectedRoute>
 //             }
 //           />
+
 //           <Route
 //             path="inventory"
 //             element={
@@ -178,6 +451,7 @@
 //               </ProtectedRoute>
 //             }
 //           />
+
 //           <Route
 //             path="salary"
 //             element={
@@ -186,6 +460,7 @@
 //               </ProtectedRoute>
 //             }
 //           />
+
 //           <Route
 //             path="rent"
 //             element={
@@ -194,6 +469,7 @@
 //               </ProtectedRoute>
 //             }
 //           />
+
 //           <Route
 //             path="daily-attendance"
 //             element={
@@ -202,6 +478,10 @@
 //               </ProtectedRoute>
 //             }
 //           />
+
+
+
+
 //           <Route
 //             path="total"
 //             element={
@@ -211,6 +491,8 @@
 //             }
 //           />
 //         </Route>
+
+//         {/* Attendance */}
 //         <Route
 //           path="/attendence"
 //           element={
@@ -220,6 +502,7 @@
 //           }
 //         />
 
+//         {/* Patient details */}
 //         <Route
 //           path="/PatientDetails/:id"
 //           element={
@@ -228,6 +511,8 @@
 //             </ProtectedRoute>
 //           }
 //         />
+
+//         {/* Billing */}
 //         <Route
 //           path="/createBill"
 //           element={
@@ -236,6 +521,11 @@
 //             </ProtectedRoute>
 //           }
 //         />
+//         BackButton
+
+
+
+//         {/* Employee details */}
 //         <Route
 //           path="/EmployeeDetails/:id"
 //           element={
@@ -244,7 +534,7 @@
 //             </ProtectedRoute>
 //           }
 //         />
-// </Routes>
+//       </Routes>
 //     </Router>
 //   );
 // }
@@ -254,7 +544,14 @@
 
 
 
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
+
 import { useState } from "react";
 
 import ProtectedRoute from "./routers/ProtectedRoute.jsx";
@@ -278,6 +575,7 @@ import Salary from "./Component/Salary";
 import Rent from "./Component/Rent";
 import Total from "./Component/Total";
 import Attendence from "./Component/Attendence";
+
 import PatientDetails from "./Component/PatientDetails.jsx";
 import EmployeeDetails from "./Component/EmployeeDetails.jsx";
 import AllEnquiry from "./Component/AllEnquiry.jsx";
@@ -287,6 +585,67 @@ import PatientAttendancePage from "./Component/PatientAttendancePage.jsx";
 import Enquiry from "./Component/Enquiry.jsx";
 import Newbill from "./Component/Newbill.jsx";
 
+// ======================================================
+// GLOBAL BACK BUTTON
+// ======================================================
+
+function GlobalBackButton() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const isDashboard = location.pathname === "/";
+  const isAuthPage = location.pathname === "/auth";
+
+  // Hide Back button on Dashboard and Authentication
+  if (isDashboard || isAuthPage) {
+    return null;
+  }
+
+  const handleBack = () => {
+    // Return to the previous application page when possible.
+    // Fall back to Dashboard on a fresh/direct page load.
+    if (location.key !== "default") {
+      navigate(-1);
+    } else {
+      navigate("/");
+    }
+  };
+
+  return (
+    <div className="px-4 pt-3 sm:px-6 lg:px-8">
+      <button
+        type="button"
+        onClick={handleBack}
+        aria-label="Go back to previous page"
+        className="group inline-flex items-center gap-2 rounded-xl border border-[#DCE6E4] bg-white px-4 py-2.5 text-sm font-semibold text-[#0B4BAA] shadow-sm transition-all duration-200 hover:border-[#00C2CB] hover:bg-[#E8F0FB] active:scale-95"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          className="transition-transform duration-200 group-hover:-translate-x-0.5"
+        >
+          <path d="m15 18-6-6 6-6" />
+          <path d="M20 12H9" />
+        </svg>
+
+        <span>Back</span>
+      </button>
+    </div>
+  );
+}
+
+// ======================================================
+// MAIN APP
+// ======================================================
+
 function App() {
   const [role, setRole] = useState("employee");
 
@@ -294,14 +653,23 @@ function App() {
     <Router>
       <Navbar />
 
-      <Routes>
-        {/* Authentication page */}
-        <Route
-  path="/auth"
-  element={<AuthPage setRole={setRole} />}
-/>
+      {/* Global Back button */}
+      <GlobalBackButton />
 
-        {/* Dashboard */}
+      <Routes>
+        {/* ==========================================
+            AUTHENTICATION
+        ========================================== */}
+
+        <Route
+          path="/auth"
+          element={<AuthPage setRole={setRole} />}
+        />
+
+        {/* ==========================================
+            DASHBOARD
+        ========================================== */}
+
         <Route
           path="/"
           element={
@@ -311,21 +679,15 @@ function App() {
           }
         />
 
-        {/* Enquiries */}
+        {/* ==========================================
+            ENQUIRIES
+        ========================================== */}
+
         <Route
           path="/allEnquiry"
           element={
             <ProtectedRoute>
               <AllEnquiry />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/Newbill"
-          element={
-            <ProtectedRoute>
-              <Newbill />
             </ProtectedRoute>
           }
         />
@@ -339,7 +701,32 @@ function App() {
           }
         />
 
-        {/* Employee management - admin only */}
+        {/* ==========================================
+            BILLING
+        ========================================== */}
+
+        <Route
+          path="/Newbill"
+          element={
+            <ProtectedRoute>
+              <Newbill />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/createBill"
+          element={
+            <ProtectedRoute>
+              <CreateBill />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ==========================================
+            EMPLOYEE MANAGEMENT
+        ========================================== */}
+
         <Route
           path="/allEmployee"
           element={
@@ -351,7 +738,32 @@ function App() {
           }
         />
 
-        {/* Assessment */}
+        <Route
+          path="/EmployeeDetails/:id"
+          element={
+            <ProtectedRoute>
+              <EmployeeDetails role={role} />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ==========================================
+            PATIENT MANAGEMENT
+        ========================================== */}
+
+        <Route
+          path="/PatientDetails/:id"
+          element={
+            <ProtectedRoute>
+              <PatientDetails />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ==========================================
+            ASSESSMENT
+        ========================================== */}
+
         <Route
           path="/assessment"
           element={
@@ -388,7 +800,10 @@ function App() {
           }
         />
 
-        {/* Treatment and client management */}
+        {/* ==========================================
+            TREATMENT AND CLIENT MANAGEMENT
+        ========================================== */}
+
         <Route
           path="/treatmentPlan"
           element={
@@ -407,7 +822,10 @@ function App() {
           }
         />
 
-        {/* Reports */}
+        {/* ==========================================
+            REPORTS
+        ========================================== */}
+
         <Route
           path="/reports"
           element={
@@ -416,10 +834,11 @@ function App() {
             </ProtectedRoute>
           }
         >
+          {/* Default reports page */}
           <Route
             index
             element={
-              <div className="text-gray-500 text-lg">
+              <div className="text-lg text-gray-500">
                 Select a report to view details
               </div>
             }
@@ -479,9 +898,6 @@ function App() {
             }
           />
 
-
-
-
           <Route
             path="total"
             element={
@@ -492,42 +908,15 @@ function App() {
           />
         </Route>
 
-        {/* Attendance */}
+        {/* ==========================================
+            ATTENDANCE
+        ========================================== */}
+
         <Route
           path="/attendence"
           element={
             <ProtectedRoute>
               <Attendence />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Patient details */}
-        <Route
-          path="/PatientDetails/:id"
-          element={
-            <ProtectedRoute>
-              <PatientDetails />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Billing */}
-        <Route
-          path="/createBill"
-          element={
-            <ProtectedRoute>
-              <CreateBill />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Employee details */}
-        <Route
-          path="/EmployeeDetails/:id"
-          element={
-            <ProtectedRoute>
-              <EmployeeDetails role={role} />
             </ProtectedRoute>
           }
         />
@@ -537,4 +926,3 @@ function App() {
 }
 
 export default App;
-
