@@ -550,6 +550,7 @@ import {
   Route,
   useNavigate,
   useLocation,
+  Navigate,
 } from "react-router-dom";
 
 import { useState } from "react";
@@ -595,9 +596,11 @@ function GlobalBackButton() {
 
   const isDashboard = location.pathname === "/";
   const isAuthPage = location.pathname === "/auth";
+  const isAttendancePortal =
+    location.pathname.toLowerCase() === "/daily-attendance";
 
   // Hide Back button on Dashboard and Authentication
-  if (isDashboard || isAuthPage) {
+  if (isDashboard || isAuthPage || isAttendancePortal) {
     return null;
   }
 
@@ -742,7 +745,9 @@ function App() {
           path="/EmployeeDetails/:id"
           element={
             <ProtectedRoute>
-              <EmployeeDetails role={role} />
+              <ProtectedRouteAdmin>
+                <EmployeeDetails role={role} />
+              </ProtectedRouteAdmin>
             </ProtectedRoute>
           }
         />
@@ -830,7 +835,9 @@ function App() {
           path="/reports"
           element={
             <ProtectedRoute>
-              <Reports />
+              <ProtectedRouteAdmin>
+                <Reports />
+              </ProtectedRouteAdmin>
             </ProtectedRoute>
           }
         >
@@ -891,11 +898,7 @@ function App() {
 
           <Route
             path="daily-attendance"
-            element={
-              <ProtectedRoute>
-                <PatientAttendancePage />
-              </ProtectedRoute>
-            }
+            element={<Navigate to="/daily-attendance" replace />}
           />
 
           <Route
@@ -912,11 +915,18 @@ function App() {
             ATTENDANCE
         ========================================== */}
 
+        {/* Employee and patient check-in/out. Public on purpose: the
+            employee's start-of-day code is what logs them in. */}
+        <Route path="/daily-attendance" element={<PatientAttendancePage />} />
+
+        {/* Staff roster - owner only (also enforced by the API). */}
         <Route
           path="/attendence"
           element={
             <ProtectedRoute>
-              <Attendence />
+              <ProtectedRouteAdmin>
+                <Attendence />
+              </ProtectedRouteAdmin>
             </ProtectedRoute>
           }
         />

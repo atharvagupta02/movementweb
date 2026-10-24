@@ -1,370 +1,816 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import jsPDF from "jspdf";
 
-export default function AttendancePage() {
-  const [employees, setEmployees] = useState([]);
-  const [attendance, setAttendance] = useState({});
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [name, setName] = useState("");
-  const [role, setRole] = useState("");
-  const [filterRole, setFilterRole] = useState("All");
-  const [searchTerm, setSearchTerm] = useState("");
+const API = import.meta.env.VITE_BACKEND_URL;
 
-  const printRef = useRef();
-  const currentMonth = date.slice(0, 7); // YYYY-MM
+const authHeaders = () => ({
+  "Content-Type": "application/json",
+  token: localStorage.getItem("webapptoken"),
+});
 
-  useEffect(() => {
-    getAllEmployees();
-  }, []);
+const todayIso = () => {
+  const now = new Date();
+  const ist = new Date(now.getTime() + (now.getTimezoneOffset() + 330) * 60000);
+  return ist.toISOString().split("T")[0];
+};
 
-  const getAllEmployees = async () => {
-    try {
-      const res = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/employee/getAllEmployee`
-      );
-      const result = await res.json();
-      if (result?.success) {
-        setEmployees(result?.employees);
-      } else {
-        alert("Failed to fetch employees");
-      }
-    } catch (err) {
-      alert("Error fetching employees");
-      console.error(err);
-    }
-  };
+const clockTime = (value) =>
+  value
+    ? new Date(value).toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Asia/Kolkata",
+      })
+    : null;
 
-  const addEmployee = async () => {
-    if (!name.trim()) return alert("Name is required");
-    if (!role) return alert("Please select a role");
+const worked = (inTime, outTime) => {
+  if (!inTime || !outTime) return null;
+  const minutes = Math.round((new Date(outTime) - new Date(inTime)) / 60000);
+  if (minutes < 0) return null;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+};
 
-    const exists = employees.find(
-      (emp) => emp.name.toLowerCase() === name.trim().toLowerCase()
-    );
-    if (exists) return alert("Employee already exists!");
-
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/employee/addEmployee`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, role }),
-        }
-      );
-      const result = await response.json();
-      if (!result?.success) return alert(result?.message);
-      alert("Employee added successfully");
-      setEmployees((prev) => [...prev, result?.employee]);
-
-      setName("");
-      setRole("");
-    } catch (err) {
-      alert("Failed to add employee");
-      console.error(err);
-    }
-  };
-
-  const handleStatusChange = async (empId, status) => {
-    setAttendance((prev) => ({
-      ...prev,
-      [empId]: {
-        ...(prev[empId] || {}),
-        [currentMonth]: {
-          ...(prev[empId]?.[currentMonth] || {}),
-          [date]: status,
-        },
-      },
-    }));
-
-    // Send update to backend
-    try {
-      const res = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/employee/update-attendance`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ empId, date, status }),
-        }
-      );
-      const result = await res.json();
-      // console.log("updates employee", result);
-      if (!result?.success) {
-        alert("Failed to update attendance: " + result?.message);
-      } else {
-        alert(result?.message);
-      }
-    } catch (err) {
-      console.error("Error updating attendance:", err);
-      alert("Error updating attendance");
-    }
-  };
-
-  const filteredEmployees = employees.filter((emp) => {
-    const matchesRole = filterRole === "All" || emp?.role === filterRole;
-    const matchesSearch = emp?.name
-      ?.toLowerCase()
-      ?.includes(searchTerm?.toLowerCase());
-    return matchesRole && matchesSearch;
+const prettyDate = (iso) =>
+  new Date(`${iso}T00:00:00+05:30`).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Kolkata",
   });
 
+const prettyMonth = (iso) =>
+  new Date(`${iso}-01T00:00:00+05:30`).toLocaleDateString("en-IN", {
+    month: "long",
+    year: "numeric",
+    timeZone: "Asia/Kolkata",
+  });
 
+const STATUS_STYLES = {
+  Present: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  Absent: "bg-rose-50 text-rose-700 ring-rose-200",
+  Leave: "bg-amber-50 text-amber-700 ring-amber-200",
+};
 
-const handlePrint = () => {
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  let y = 20;
+export default function AttendancePage() {
+  const [mode, setMode] = useState("day");
+  const [date, setDate] = useState(todayIso());
+  const [month, setMonth] = useState(todayIso().slice(0, 7));
+  const [roster, setRoster] = useState([]);
+  const [monthly, setMonthly] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [search, setSearch] = useState("");
+  const [savingId, setSavingId] = useState(null);
+  const [rowBusy, setRowBusy] = useState(null);
+  // Authenticator setup dialog: { row, qrDataUrl, manualKey, error, busy }
+  const [setup, setSetup] = useState(null);
+  const [setupCode, setSetupCode] = useState("");
 
-  // Header
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
-  doc.setTextColor(200, 0, 0);
-  doc.text("Akhand Param Dham Physiotherapy Center", pageWidth / 2, y, { align: "center" });
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    const url =
+      mode === "day"
+        ? `${API}/api/attendance/day?date=${date}`
+        : `${API}/api/attendance/month?month=${month}`;
+    try {
+      const res = await fetch(url, { headers: authHeaders() });
+      const body = await res.json().catch(() => ({}));
 
-  y += 15;
-  doc.setFontSize(12);
-  doc.setTextColor(0, 0, 0);
-  doc.setFont("helvetica", "normal");
-  doc.text("Dr. Mayank Gupta | B.P.T., C. Yoga, C.C.H.", 10, y);
-  y += 6;
-  doc.text("Consultant Physiotherapist", 10, y);
-  y += 6;
-  doc.text("Reg. No.: SCH-01/DEG2/25326/2014", 10, y);
+      if (res.status === 403) {
+        setError("Only the admin can view the staff attendance report.");
+        setRoster([]);
+        setMonthly([]);
+        return;
+      }
+      if (!res.ok) {
+        setError(body.message || "Could not load attendance.");
+        setRoster([]);
+        setMonthly([]);
+        return;
+      }
+      if (mode === "day") setRoster(body.roster || []);
+      else setMonthly(body.staff || []);
+    } catch {
+      setError("Could not reach the server.");
+      setRoster([]);
+      setMonthly([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [mode, date, month]);
 
-  const rawDate = new Date(date);
-  const formattedDate = `${String(rawDate.getDate()).padStart(2, "0")}-${String(rawDate.getMonth() + 1).padStart(2, "0")}-${rawDate.getFullYear()}`;
-  doc.text(`Date: ${formattedDate}`, pageWidth - 60, y);
-  y += 10;
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  doc.line(10, y, pageWidth - 10, y);
-  y += 10;
+  const mark = async (row, status, force = false) => {
+    setSavingId(row.employeeId);
+    setError("");
+    try {
+      const res = await fetch(
+        `${API}/api/attendance/markEmployee${force ? "?force=1" : ""}`,
+        {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ employeeId: row.employeeId, date, status }),
+        },
+      );
+      const body = await res.json().catch(() => ({}));
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  doc.text(`Attendance Details (${filterRole})`, 10, y);
-  y += 10;
+      if (res.status === 409 && body.code === "HAS_SELF_CHECKIN") {
+        const ok = window.confirm(
+          `${row.name} checked in at ${clockTime(row.inTime)}. Override that punch with "${status}"?`,
+        );
+        if (ok) await mark(row, status, true);
+        return;
+      }
+      if (!res.ok) {
+        setError(body.message || "Could not save.");
+        return;
+      }
+      await load();
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setSavingId(null);
+    }
+  };
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(11);
+  // The owner sets an employee's authenticator up: the QR shows here and the
+  // employee scans it with their own phone.
+  const startSetup = async (row) => {
+    if (
+      row.authenticator &&
+      !window.confirm(
+        `${row.name} already has an authenticator. Setting it up again stops their current phone from working. Continue?`,
+      )
+    ) {
+      return;
+    }
+    setError("");
+    setSetupCode("");
+    setSetup({ row, busy: true });
+    try {
+      const res = await fetch(`${API}/api/attendance/totp/enroll-for`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ employeeId: row.employeeId, reset: !!row.authenticator }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSetup(null);
+        setError(body.message || "Could not start setup.");
+        return;
+      }
+      setSetup({ row, qrDataUrl: body.qrDataUrl, manualKey: body.manualKey });
+    } catch {
+      setSetup(null);
+      setError("Could not reach the server.");
+    }
+  };
 
-  filteredEmployees.forEach((emp, idx) => {
-    if (y > 270) {
-      doc.addPage();
-      y = 20;
+  const confirmSetup = async () => {
+    setSetup((s) => ({ ...s, busy: true, error: "" }));
+    try {
+      const res = await fetch(`${API}/api/attendance/totp/confirm-for`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ employeeId: setup.row.employeeId, code: setupCode }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSetup((s) => ({ ...s, busy: false, error: body.message || "Could not confirm." }));
+        return;
+      }
+      setNotice(`${setup.row.name} can now check in with their Employee ID and code.`);
+      setSetup(null);
+      await load();
+    } catch {
+      setSetup((s) => ({ ...s, busy: false, error: "Could not reach the server." }));
+    }
+  };
+
+  const rows = mode === "day" ? roster : monthly;
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(
+      (r) =>
+        r.name.toLowerCase().includes(q) || (r.code || "").toLowerCase().includes(q),
+    );
+  }, [rows, search]);
+
+  const totals = useMemo(() => {
+    if (mode === "day") {
+      const count = (s) => roster.filter((r) => r.status === s).length;
+      return {
+        present: count("Present"),
+        absent: count("Absent"),
+        leave: count("Leave"),
+        fourth: roster.filter((r) => !r.status).length,
+      };
+    }
+    return monthly.reduce(
+      (acc, s) => ({
+        present: acc.present + s.present,
+        absent: acc.absent + s.absent,
+        leave: acc.leave + s.leave,
+        fourth: acc.fourth + s.late,
+      }),
+      { present: 0, absent: 0, leave: 0, fourth: 0 },
+    );
+  }, [mode, roster, monthly]);
+
+  /* ---------- export ---------- */
+
+  const fileName =
+    mode === "day" ? `Staff-Attendance-${date}.pdf` : `Staff-Attendance-${month}.pdf`;
+
+  // The text that lands in the WhatsApp chat. The PDF carries the detail; this
+  // is the at-a-glance summary that shows in the chat list itself.
+  const message = useMemo(() => {
+    const head =
+      mode === "day"
+        ? `*Movement Rehab* - Staff attendance\n${prettyDate(date)}`
+        : `*Movement Rehab* - Staff attendance\n${prettyMonth(month)}`;
+
+    if (mode === "day") {
+      const lines = filtered.map((r) => {
+        const inAt = clockTime(r.inTime);
+        if (inAt) {
+          const outAt = clockTime(r.outTime);
+          return `• ${r.name}: ${inAt}${outAt ? ` - ${outAt}` : " (still in)"}${r.late ? " (late)" : ""}`;
+        }
+        return `• ${r.name}: ${r.status || "not marked"}`;
+      });
+      return `${head}\n\n${lines.join("\n")}`;
     }
 
-    const empId = emp._id || emp.id;
-    doc.text(`${idx + 1}. ${emp.name} (${emp.role}):`, 10, y);
-    y += 8;
+    const lines = filtered.map(
+      (s) =>
+        `• ${s.name}: ${s.present} present, ${s.absent} absent, ${s.leave} leave${s.late ? `, ${s.late} late` : ""}`,
+    );
+    return `${head}\n\n${lines.join("\n")}`;
+  }, [mode, date, month, filtered]);
 
-    const attendanceByMonth = attendance[empId] || {};
-    // Loop over months in attendance
-    Object.entries(attendanceByMonth).forEach(([month, days]) => {
-      if (y > 270) {
-        doc.addPage();
-        y = 20;
-      }
+  const buildPdf = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(14);
+    doc.text("Movement Rehab - Staff Attendance", 14, 18);
+    doc.setFontSize(10);
+    doc.text(mode === "day" ? prettyDate(date) : prettyMonth(month), 14, 26);
 
-      doc.setFont("helvetica", "bold");
-      doc.text(`  Month: ${month}`, 15, y);
-      y += 8;
-      doc.setFont("helvetica", "normal");
+    let y = 38;
+    doc.setFontSize(9);
 
-      // For each day in that month
-      Object.entries(days).forEach(([day, status]) => {
-        if (y > 270) {
+    if (mode === "day") {
+      doc.text(
+        `Present ${totals.present}   Absent ${totals.absent}   Leave ${totals.leave}   Not marked ${totals.fourth}`,
+        14,
+        32,
+      );
+      ["Name", "In", "Out", "Worked", "Status", "Source"].forEach((h, i) =>
+        doc.text(h, [14, 80, 102, 124, 148, 178][i], y),
+      );
+      y += 4;
+      doc.line(14, y, 196, y);
+      y += 6;
+
+      filtered.forEach((r) => {
+        if (y > 280) {
           doc.addPage();
           y = 20;
         }
-        doc.text(`    ${day}: ${status}`, 20, y);
+        doc.text(String(r.name).slice(0, 34), 14, y);
+        doc.text(clockTime(r.inTime) || "-", 80, y);
+        doc.text(clockTime(r.outTime) || "-", 102, y);
+        doc.text(worked(r.inTime, r.outTime) || "-", 124, y);
+        doc.text((r.late ? "Late " : "") + (r.status || "Not marked"), 148, y);
+        doc.text(
+          r.source === "self" ? "Self" : r.source === "admin" ? "Admin" : "-",
+          178,
+          y,
+        );
         y += 7;
       });
+    } else {
+      doc.text(
+        `Present ${totals.present}   Absent ${totals.absent}   Leave ${totals.leave}   Late ${totals.fourth}`,
+        14,
+        32,
+      );
+      ["Name", "Role", "Present", "Absent", "Leave", "Late"].forEach((h, i) =>
+        doc.text(h, [14, 80, 120, 143, 164, 184][i], y),
+      );
+      y += 4;
+      doc.line(14, y, 196, y);
+      y += 6;
+
+      filtered.forEach((s) => {
+        if (y > 280) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.text(String(s.name).slice(0, 30), 14, y);
+        doc.text(String(s.role || "-").slice(0, 16), 80, y);
+        doc.text(String(s.present), 120, y);
+        doc.text(String(s.absent), 143, y);
+        doc.text(String(s.leave), 164, y);
+        doc.text(String(s.late), 184, y);
+        y += 7;
+      });
+    }
+
+    return doc;
+  };
+
+  // One person's month, day by day. Always a month report even from the Day
+  // view - a single day is a row, not a document worth downloading.
+  const buildStaffPdf = (person, monthKey) => {
+    const doc = new jsPDF();
+    doc.setFontSize(14);
+    doc.text("Movement Rehab - Attendance", 14, 18);
+    doc.setFontSize(11);
+    doc.text(person.name, 14, 27);
+    doc.setFontSize(9);
+    doc.text(
+      [person.code, person.role].filter(Boolean).join("  |  ") || "-",
+      14,
+      33,
+    );
+    doc.text(prettyMonth(monthKey), 14, 39);
+    doc.text(
+      `Present ${person.present}   Absent ${person.absent}   Leave ${person.leave}   Late ${person.late}`,
+      14,
+      45,
+    );
+
+    let y = 57;
+    ["Date", "In", "Out", "Worked", "Status", "Source"].forEach((h, i) =>
+      doc.text(h, [14, 60, 85, 110, 138, 172][i], y),
+    );
+    y += 4;
+    doc.line(14, y, 196, y);
+    y += 6;
+
+    const days = Object.keys(person.days).sort();
+    if (!days.length) {
+      doc.text("No attendance recorded this month.", 14, y);
+    }
+
+    days.forEach((day) => {
+      if (y > 280) {
+        doc.addPage();
+        y = 20;
+      }
+      const entry = person.days[day];
+      doc.text(prettyDate(day), 14, y);
+      doc.text(clockTime(entry.inTime) || "-", 60, y);
+      doc.text(clockTime(entry.outTime) || "-", 85, y);
+      doc.text(worked(entry.inTime, entry.outTime) || "-", 110, y);
+      doc.text((entry.late ? "Late " : "") + (entry.status || "-"), 138, y);
+      doc.text(entry.source === "self" ? "Self" : "Admin", 172, y);
+      y += 7;
     });
 
-    y += 5; // Space after each employee
-  });
+    return doc;
+  };
 
-  doc.setFontSize(10);
-  doc.setTextColor(100);
-  doc.setFont("helvetica", "italic");
-  doc.text("Swami Parmanand Netralaya, Near NDPS School, Khandwa Road, Indore", pageWidth / 2, 280, { align: "center" });
-  doc.text("Mob: 98276-36538 | Timing: Morning 9–12, Evening 4–6", pageWidth / 2, 286, { align: "center" });
-
-  doc.save(`Attendance_${currentMonth}_${filterRole}.pdf`);
-};
-
-
-//   console.log("all employ", employees);
-// console.log("attendence" , attendance);
-
-  employees.forEach((emp) => {
-    console.log(`Name: ${emp?.name}`);
-    const attendance = emp?.attendance;
-    // console.log("Attendance:" , attendance);
-    if (attendance && Object.keys(attendance).length > 0) {
-      for (const month in attendance) {
-        console.log(`  Month: ${month}`);
-        for (const date in attendance[month]) {
-          console.log(`    ${date}: ${attendance[month][date]}`);
-        }
+  const downloadStaffPdf = async (row) => {
+    setRowBusy(row.employeeId);
+    setError("");
+    setNotice("");
+    const monthKey = mode === "day" ? date.slice(0, 7) : month;
+    try {
+      const res = await fetch(`${API}/api/attendance/month?month=${monthKey}`, {
+        headers: authHeaders(),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(body.message || "Could not build that report.");
+        return;
       }
-    } else {
-      console.log("  No attendance found.");
+      const person = (body.staff || []).find(
+        (s) => String(s.employeeId) === String(row.employeeId),
+      );
+      if (!person) {
+        setError(`No record found for ${row.name}.`);
+        return;
+      }
+      buildStaffPdf(person, monthKey).save(
+        `Attendance-${person.name.replace(/\s+/g, "_")}-${monthKey}.pdf`,
+      );
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setRowBusy(null);
     }
-  });
+  };
+
+  const downloadPdf = () => buildPdf().save(fileName);
+
+  // On a phone this opens the share sheet with the PDF attached, so WhatsApp
+  // receives the real file. A browser cannot attach a file to a wa.me link, so
+  // on a computer the PDF downloads and WhatsApp opens with the text to paste.
+  const shareWhatsApp = async () => {
+    setNotice("");
+    const file = new File([buildPdf().output("blob")], fileName, {
+      type: "application/pdf",
+    });
+
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: "Staff attendance",
+          text: message,
+        });
+        return;
+      } catch (err) {
+        if (err?.name === "AbortError") return;
+      }
+    }
+
+    buildPdf().save(fileName);
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank", "noopener");
+    setNotice("PDF downloaded and WhatsApp opened - attach the file in the chat.");
+  };
+
+  const copyMessage = async () => {
+    try {
+      await navigator.clipboard.writeText(message);
+      setNotice("Summary copied.");
+    } catch {
+      setNotice("Could not copy the summary.");
+    }
+  };
+
+  /* ---------- render ---------- */
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6 text-center">
-        Attendance Tracker
-      </h1>
+    <div className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Staff attendance</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Check-ins appear here automatically. Mark only the staff who did not punch.
+            </p>
+          </div>
 
-      {/* Add Employee */}
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-2">Add Employee/Patient</h2>
-        <div className="flex gap-4 flex-wrap">
+          <div className="inline-flex rounded-xl bg-slate-200/70 p-1">
+            {[
+              ["day", "Day"],
+              ["month", "Month"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setMode(value)}
+                className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition ${
+                  mode === value
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          {mode === "day" ? (
+            <input
+              type="date"
+              value={date}
+              max={todayIso()}
+              onChange={(e) => setDate(e.target.value)}
+              className="rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
+            />
+          ) : (
+            <input
+              type="month"
+              value={month}
+              max={todayIso().slice(0, 7)}
+              onChange={(e) => setMonth(e.target.value)}
+              className="rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
+            />
+          )}
+
           <input
-            type="text"
-            placeholder="Name"
-            className="border px-3 py-2 rounded"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search staff"
+            className="rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
           />
-          <select
-            className="border px-3 py-2 rounded"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-          >
-            <option value="">--Select Role--</option>
-            <option value="Employee">Employee</option>
-            <option value="Patient">Patient</option>
-          </select>
-          <button
-            onClick={addEmployee}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          >
-            Add
-          </button>
-        </div>
-      </div>
 
-      {/* Filters */}
-      <div className="mb-4">
-        <label className="block font-medium mb-1">Select Date:</label>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="border px-3 py-2 rounded w-full max-w-xs"
-        />
-      </div>
-
-      <div className="mb-4 flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <label className="block font-medium mb-1">Filter by Role:</label>
-          <select
-            className="border px-3 py-2 rounded w-full max-w-xs"
-            value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
-          >
-            <option value="All">All</option>
-            <option value="Employee">Employee</option>
-            <option value="Patient">Patient</option>
-          </select>
+          <div className="ml-auto flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={copyMessage}
+              disabled={!filtered.length}
+              className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
+            >
+              Copy summary
+            </button>
+            <button
+              type="button"
+              onClick={downloadPdf}
+              disabled={!filtered.length}
+              className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+            >
+              Download PDF
+            </button>
+            <button
+              type="button"
+              onClick={shareWhatsApp}
+              disabled={!filtered.length}
+              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+            >
+              Send on WhatsApp
+            </button>
+          </div>
         </div>
-        <div>
-          <label className="block font-medium mb-1">Search by Name:</label>
-          <input
-            type="text"
-            placeholder="Search"
-            className="border px-3 py-2 rounded w-full max-w-xs"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <button
-          onClick={handlePrint}
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-        >
-          Print Attendance
-        </button>
-      </div>
 
-      {/* Attendance Table */}
-      <div ref={printRef}>
-        {filteredEmployees.length === 0 ? (
-          <p className="text-gray-500">
-            No {filterRole.toLowerCase()}s found. Add one above ⬆️
-          </p>
-        ) : (
-          <>
-            <table className="w-full border text-sm">
-              <thead className="bg-gray-100">
+        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            ["Present", totals.present, "text-emerald-700"],
+            ["Absent", totals.absent, "text-rose-700"],
+            ["Leave", totals.leave, "text-amber-700"],
+            [mode === "day" ? "Not marked" : "Late", totals.fourth, "text-slate-500"],
+          ].map(([label, value, tone]) => (
+            <div
+              key={label}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3"
+            >
+              <p className={`text-2xl font-bold ${tone}`}>{value}</p>
+              <p className="text-xs text-slate-500">{label}</p>
+            </div>
+          ))}
+        </div>
+
+        {error && (
+          <div className="mb-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-200">
+            {error}
+          </div>
+        )}
+        {notice && (
+          <div className="mb-4 rounded-xl bg-sky-50 px-4 py-3 text-sm text-sky-800 ring-1 ring-sky-200">
+            {notice}
+          </div>
+        )}
+
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="border px-4 py-2 text-left">Name</th>
-                  <th className="border px-4 py-2 text-left">Role</th>
-                  <th className="border px-4 py-2 text-left">
-                    Status for {date}
-                  </th>
+                  <th className="px-4 py-3 font-semibold">Staff</th>
+                  {mode === "day" ? (
+                    <>
+                      <th className="px-4 py-3 font-semibold">In</th>
+                      <th className="px-4 py-3 font-semibold">Out</th>
+                      <th className="px-4 py-3 font-semibold">Status</th>
+                      <th className="px-4 py-3 font-semibold">Authenticator</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="px-4 py-3 font-semibold">Present</th>
+                      <th className="px-4 py-3 font-semibold">Absent</th>
+                      <th className="px-4 py-3 font-semibold">Leave</th>
+                      <th className="px-4 py-3 font-semibold">Late</th>
+                    </>
+                  )}
+                  <th className="px-4 py-3 text-right font-semibold">Report</th>
                 </tr>
               </thead>
-              <tbody>
-                {filteredEmployees.map((emp) => {
-                  const empId = emp?._id || emp?.id;
-                  const status =
-                    attendance[empId]?.[currentMonth]?.[date] || "";
-                  // console.log("statues", status);
-                  return (
-                    <tr key={empId}>
-                      <td>{emp?.name}</td>
-                      <td>{emp?.role}</td>
-                      <td>
-                        <select
-                          value={status}
-                          onChange={(e) =>
-                            handleStatusChange(empId, e.target.value)
-                          }
+              <tbody className="divide-y divide-slate-100">
+                {loading && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-10 text-center text-slate-400">
+                      Loading...
+                    </td>
+                  </tr>
+                )}
+
+                {!loading && !filtered.length && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-10 text-center text-slate-400">
+                      {rows.length ? "No staff match that search." : "No staff found."}
+                    </td>
+                  </tr>
+                )}
+
+                {!loading &&
+                  filtered.map((row) => (
+                    <tr key={row.employeeId} className="hover:bg-slate-50/60">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-900">{row.name}</p>
+                        <p className="text-xs text-slate-400">
+                          {[row.code, row.role].filter(Boolean).join(" · ") || "—"}
+                        </p>
+                        {!row.code && (
+                          <p className="text-xs text-amber-600">
+                            No Employee ID - add one on the Staff page
+                          </p>
+                        )}
+                      </td>
+
+                      {mode === "day" ? (
+                        <>
+                          <td className="px-4 py-3 tabular-nums text-slate-700">
+                            {clockTime(row.inTime) || (
+                              <span className="text-slate-300">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 tabular-nums text-slate-700">
+                            {clockTime(row.outTime) || (
+                              <span className="text-slate-300">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {row.source === "self" ? (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 ring-1 ring-sky-200">
+                                  Self check-in
+                                </span>
+                                {row.late && (
+                                  <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">
+                                    Late
+                                  </span>
+                                )}
+                                {worked(row.inTime, row.outTime) && (
+                                  <span className="text-xs text-slate-500">
+                                    {worked(row.inTime, row.outTime)} worked
+                                  </span>
+                                )}
+                                {row.inTime && !row.outTime && (
+                                  <span className="text-xs text-slate-400">still in</span>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <select
+                                  value={row.status || ""}
+                                  disabled={savingId === row.employeeId}
+                                  onChange={(e) =>
+                                    e.target.value && mark(row, e.target.value)
+                                  }
+                                  className={`rounded-lg border px-2.5 py-1.5 text-sm font-medium ring-1 ring-inset focus:outline-none ${
+                                    row.status
+                                      ? STATUS_STYLES[row.status]
+                                      : "border-slate-300 bg-white text-slate-500 ring-transparent"
+                                  }`}
+                                >
+                                  <option value="">Not marked</option>
+                                  <option value="Present">Present</option>
+                                  <option value="Absent">Absent</option>
+                                  <option value="Leave">Leave</option>
+                                </select>
+                                {savingId === row.employeeId && (
+                                  <span className="text-xs text-slate-400">saving...</span>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
+                                  row.authenticator
+                                    ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                                    : "bg-slate-50 text-slate-500 ring-slate-200"
+                                }`}
+                              >
+                                {row.authenticator ? "Active" : "Not set up"}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => startSetup(row)}
+                                className="text-xs font-semibold text-sky-700 hover:underline"
+                              >
+                                {row.authenticator ? "Reset" : "Set up"}
+                              </button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-4 py-3 tabular-nums font-semibold text-emerald-700">
+                            {row.present}
+                          </td>
+                          <td className="px-4 py-3 tabular-nums font-semibold text-rose-700">
+                            {row.absent}
+                          </td>
+                          <td className="px-4 py-3 tabular-nums font-semibold text-amber-700">
+                            {row.leave}
+                          </td>
+                          <td className="px-4 py-3 tabular-nums text-slate-500">
+                            {row.late}
+                          </td>
+                        </>
+                      )}
+
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => downloadStaffPdf(row)}
+                          disabled={rowBusy === row.employeeId}
+                          title={`Download ${row.name}'s month as PDF`}
+                          aria-label={`Download ${row.name}'s attendance for the month`}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
                         >
-                          <option value="">--Select--</option>
-                          <option value="Present">Present</option>
-                          <option value="Absent">Absent</option>
-                          <option value="Leave">Leave</option>
-                        </select>
+                          {rowBusy === row.employeeId ? (
+                            <span className="text-xs">...</span>
+                          ) : (
+                            <svg
+                              className="h-[18px] w-[18px]"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M12 3v12" />
+                              <path d="m7 11 5 5 5-5" />
+                              <path d="M5 21h14" />
+                            </svg>
+                          )}
+                        </button>
                       </td>
                     </tr>
-                  );
-                })}
+                  ))}
               </tbody>
             </table>
+          </div>
+        </div>
 
-            {/* Summary */}
-            <div className="mt-10">
-              <h2 className="text-xl font-semibold mb-2">
-                Summary for {currentMonth} ({filterRole})
-              </h2>
-              <ul className="list-disc pl-6 text-sm">
-                {filteredEmployees.map((emp) => {
-                  const empId = emp?._id || emp?.id;
-                  const days = attendance[empId]?.[currentMonth] || {};
-                  const presentCount = Object.values(days).filter(
-                    (s) => s === "Present"
-                  )?.length;
-                  const absentCount = Object.values(days).filter(
-                    (s) => s === "Absent"
-                  )?.length;
-                  const leaveCount = Object.values(days).filter(
-                    (s) => s === "Leave"
-                  )?.length;
-                  return (
-                    <li key={empId}>
-                      <strong>{emp?.name}:</strong> {presentCount} Present,{" "}
-                      {absentCount} Absent, {leaveCount} Leave
-                    </li>
-                  );
-                })}
-              </ul>
+        <p className="mt-4 text-xs text-slate-400">
+          For one person&apos;s full month, open them from the Staff list - their page has
+          its own attendance calendar, PDF and WhatsApp share.
+        </p>
+
+        {setup && (
+          <div
+            className="fixed inset-0 z-50 grid place-items-center bg-slate-900/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Set up authenticator for ${setup.row.name}`}
+          >
+            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+              <h2 className="text-lg font-bold text-slate-900">Set up {setup.row.name}</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Ask them to scan this with Google or Microsoft Authenticator, then type the 6-digit
+                code their app shows.
+              </p>
+
+              {setup.qrDataUrl ? (
+                <>
+                  <div className="mt-4 grid place-items-center rounded-xl border border-slate-200 p-3">
+                    <img src={setup.qrDataUrl} alt="Authenticator setup QR code" className="h-44 w-44" />
+                  </div>
+                  <p className="mt-3 break-all rounded-lg bg-slate-100 px-3 py-2 text-center font-mono text-xs text-slate-600">
+                    {setup.manualKey}
+                  </p>
+                  <input
+                    value={setupCode}
+                    onChange={(e) => setSetupCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    onKeyDown={(e) => e.key === "Enter" && setupCode.length === 6 && confirmSetup()}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="6-digit code"
+                    className="mt-4 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-center text-lg font-bold tracking-[0.4em] focus:border-sky-500 focus:outline-none"
+                  />
+                  {setup.error && <p className="mt-2 text-sm text-rose-600">{setup.error}</p>}
+                  <button
+                    type="button"
+                    onClick={confirmSetup}
+                    disabled={setup.busy || setupCode.length !== 6}
+                    className="mt-3 w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+                  >
+                    {setup.busy ? "Checking..." : "Confirm"}
+                  </button>
+                </>
+              ) : (
+                <p className="mt-6 text-center text-sm text-slate-400">Preparing the QR code...</p>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setSetup(null)}
+                className="mt-3 w-full rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>
