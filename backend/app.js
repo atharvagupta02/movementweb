@@ -10,6 +10,7 @@ import reportRouter from "./routes/reportRoute.js";
 import employeeRouter from "./routes/employeeRoute.js";
 import treatmentPlanRouter from "./routes/treatmentPlanRoute.js";
 import attendanceRouter from "./routes/attendanceRoute.js";
+import connectDb from "./config/mongodb.js";
 
 //App config
 const app = express();
@@ -38,6 +39,32 @@ const allowedOrigins = (process.env.CORS_ORIGINS || "")
 
 app.use(cors({ origin: allowedOrigins.length ? allowedOrigins : "*" }));
 
+// Health check: answers even when the database is down, so "is the server up?"
+// and "is the database up?" can be told apart.
+app.get("/", (req, res) => {
+  res.send("API working");
+});
+
+// Make sure the database is connected before any API route runs. connectDb()
+// is idempotent (it returns at once when already connected), so on a normal
+// server this costs nothing, and in a serverless function it opens the
+// connection on a cold start and reuses it afterwards - whichever file the host
+// uses as the entry point. If the database is unreachable the caller gets a
+// clear 503 instead of a request that hangs.
+app.use(async (req, res, next) => {
+  try {
+    await connectDb();
+    next();
+  } catch (error) {
+    console.error("Database unavailable:", error.message);
+    res.status(503).json({
+      success: false,
+      message: "The service is temporarily unavailable. Please try again.",
+      code: "DB_UNAVAILABLE",
+    });
+  }
+});
+
 //api end points
 app.use("/api/user", userRouter);
 app.use("/api/enquiry", enquiryRouter);
@@ -49,8 +76,5 @@ app.use("/api/employee", employeeRouter);
 app.use("/api/treatmentPlan", treatmentPlanRouter);
 app.use("/api/attendance",attendanceRouter );
 
-app.get("/", (req, res) => {
-  res.send("API working");
-});
 
 export default app;
