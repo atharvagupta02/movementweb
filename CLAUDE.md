@@ -44,11 +44,22 @@ The admin identity is config-driven on **both** sides: a logged-in employee is "
 
 Standard Express layering: `server.js` → `routes/*` → `controllers/*` → `models/*` (Mongoose). Each domain has a matching route+controller+model trio. Mounted route prefixes (see `server.js`): `/api/user`, `/api/enquiry`, `/api/patient`, `/api/assessment`, `/api/client`, `/api/report`, `/api/employee`, `/api/treatmentPlan`, `/api/attendance`. CORS is wide open (`origin: "*"`).
 
-### Two separate auth systems — do not conflate them
-- `middleware/employeeAuth.js` — verifies a JWT from the `token` header, sets `req.id` (employee id). This is the primary staff auth used by protected employee/enquiry routes.
-- `middleware/auth.js` (`authUser`) — verifies a JWT from the `token` header, sets `req.contactNumber`. A separate, lighter scheme used by a few `/api/user`-style and patient-personal-details endpoints.
+### Auth - who can call what
+Every route is guarded in its route file. The guards, from weakest to strongest:
+- `middleware/employeeAuth.js` - a staff JWT in the `token` header. Refuses patient tokens (no `id`), deleted employees and **Inactive** employees (so a leaver's token dies at once), and sets `req.id`.
+- `middleware/adminOnly.js` - run after `employeeAuth`; passes only the account whose email equals `ADMIN_EMAIL`. Used for reports (except bill create/update), staff management, patient-account listing and the staff attendance roster.
+- `middleware/auth.js` (`authUser`) - a patient JWT (`contactNumber`). Staff tokens are refused here.
+- `middleware/clinicIp.js` - request must come from `CLINIC_IPS`. Only on the three punch endpoints.
 
-Auth is applied **inconsistently and per-route** — many routes are currently unauthenticated (e.g. `getEnquiry`, most `report` and `patient` reads). Check the specific route file before assuming a handler is protected.
+Intentionally public: `loginEmployee`, `/api/user/createUser` + `loginUser`, and the attendance punch endpoints (`/attendance/punch`, `/attendance/patient/punch`), which carry their own proof and a wrong-guess limiter (`utils/attemptLimiter.js`, in memory, so one server only).
+
+### Attendance (`/daily-attendance`, public page)
+- Staff: Employee ID + 6-digit authenticator code (TOTP). First code of the IST day = check in **and** log in; second = check out **and** log out. `utils/punch.js` is the single place a day is stamped.
+- The owner enrols each employee from Staff Attendance (`/attendance/totp/enroll-for`, `confirm-for`), showing the QR on the owner's screen. The QR is never shown again; the secret never leaves the server.
+- A signed-in person (including the owner, who has no Employee ID) just enters the code (`/attendance/selfCheckIn`).
+- Patients: Patient ID + registered mobile number.
+- `scripts/portalSmokeTest.js` is the end-to-end test (refuses to run unless MONGO_URI is local). See its header for how to run it.
+- Production values to set: see `backend/.env.example` - especially `CLINIC_IPS` and `TRUST_PROXY`.
 
 ### Core domain model
 The **enquiry → patient** lifecycle is the spine of the app:

@@ -4,7 +4,7 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 
 // true = only admin sees the Staff tab
 // false = all logged-in users see the Staff tab
-const EMPLOYEE_TAB_ADMIN_ONLY = false;
+const EMPLOYEE_TAB_ADMIN_ONLY = true;
 
 const Icon = ({ d, className = "h-5 w-5" }) => (
   <svg
@@ -126,15 +126,29 @@ const NavigationTabs = () => {
       path: "/Reports",
       icon: ICONS.chart,
       title: "Reports",
+      adminOnly: true,
     },
     {
       name: "Daily Attendance",
-      path:"daily-attendance",
+      path: "/daily-attendance",
       icon: ICONS.chart,
       title: "Daily Attendance",
     },
-    
+    {
+      name: "Staff Attendance",
+      path: "/attendence",
+      icon: ICONS.users,
+      title: "Staff Attendance",
+      adminOnly: true,
+    },
   ];
+
+  // Owner-only tabs are not shown to anyone else (the API refuses them too).
+  if (!isAdmin) {
+    for (let i = tabs.length - 1; i >= 0; i -= 1) {
+      if (tabs[i].adminOnly) tabs.splice(i, 1);
+    }
+  }
 
   if (EMPLOYEE_TAB_ADMIN_ONLY && !isAdmin) {
     const staffIndex = tabs.findIndex((tab) => tab.path === "/allEmployee");

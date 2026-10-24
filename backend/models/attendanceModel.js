@@ -4,7 +4,7 @@ const attendanceSchema = new mongoose.Schema(
   {
     id: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "patient",
+      ref: "Patient",
       required: true,
     },
     date: {
@@ -14,7 +14,7 @@ const attendanceSchema = new mongoose.Schema(
     status: {
       type: String,
       required: true,
-      enum: ["Present", "Absent"],
+      enum: ["Present", "Absent", "Leave"],
       default: "Present",
     },
     type:{
@@ -22,6 +22,18 @@ const attendanceSchema = new mongoose.Schema(
       required: true,
       enum: ["employee", "patient"],
       default: "patient",
+    },
+    // Employee self check-in via TOTP fills these; admin-marked and patient
+    // attendance leaves them unset, so older records stay valid.
+    inTime: {
+      type: Date,
+    },
+    outTime: {
+      type: Date,
+    },
+    late: {
+      type: Boolean,
+      default: false,
     }
   },
   { timestamps: true }

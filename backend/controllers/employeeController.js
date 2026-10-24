@@ -1,5 +1,7 @@
 import Employee from "../models/employeeModels.js";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+import sanitizeEmployee from "../utils/sanitizeEmployee.js";
 
 const addEmployee = async (req, res) => {
   const { name, role } = req.body;
@@ -35,7 +37,9 @@ const addEmployee = async (req, res) => {
 
 const getAllEmployee = async (req, res) => {
   try {
-    const employees = await Employee.find().sort({ createdAt: -1 });
+    const employees = await Employee.find()
+      .select("-personalDetails.password -totp.secret -totp.lastCounter")
+      .sort({ createdAt: -1 });
     res.json({ success: true, employees });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -143,6 +147,8 @@ const createEmployee = async (req, res) => {
       });
     }
 
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const employee = await Employee.create({
       personalDetails: {
         employeeId,
@@ -152,7 +158,7 @@ const createEmployee = async (req, res) => {
         experience,
         contactNumber,
         email,
-        password,
+        password: hashedPassword,
         workingBranch,
         status,
         employeeType,
@@ -165,7 +171,7 @@ const createEmployee = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Employee created successfully",
-      employee,
+      employee: sanitizeEmployee(employee),
     });
   } catch (error) {
     console.error(error);
@@ -179,6 +185,7 @@ const createEmployee = async (req, res) => {
 const getEmployeeById = async (req, res) => {
   try {
     const employee = await Employee.findById(req.params.id)
+      .select("-personalDetails.password -totp.secret -totp.lastCounter")
       .populate("patientLook.patientId")
       .populate({
         path:"attendance",
@@ -224,13 +231,23 @@ const updateEmployee = async (req, res) => {
       exitDate,
     } = req.body;
 
-    const employeeExist = await Employee.findById(req.params.id);
+    const employeeExist = await Employee.findById(req.params.id).select(
+      "+personalDetails.password",
+    );
     if (!employeeExist) {
       return res.status(404).json({
         success: false,
         message: "Employee not found",
       });
     }
+
+    // This update replaces personalDetails wholesale, so an omitted password
+    // would wipe the stored credential. Keep the existing hash instead, and
+    // only re-hash when the caller actually sends a new password.
+    const nextPassword = password
+      ? await bcrypt.hash(password, 10)
+      : employeeExist.personalDetails.password;
+
     const employee = await Employee.findByIdAndUpdate(req.params.id, {
       personalDetails: {
         employeeId,
@@ -240,7 +257,7 @@ const updateEmployee = async (req, res) => {
         experience,
         contactNumber,
         email,
-        password,
+        password: nextPassword,
         workingBranch,
         status,
         employeeType,
@@ -252,7 +269,7 @@ const updateEmployee = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Employee updated successfully",
-      employee,
+      employee: sanitizeEmployee(employee),
     });
   } catch (err) {
     console.error(err);
@@ -290,9 +307,18 @@ const deleteEmployeeById = async (req, res) => {
 const loginEmployee = async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log("loginData", req.body);
-    const employee = await Employee.findOne({ "personalDetails.email": email });
-    console.log("employee", employee);
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required",
+      });
+    }
+
+    const employee = await Employee.findOne({
+      "personalDetails.email": email,
+    }).select("+personalDetails.password");
+
     if (!employee) {
       return res.status(404).json({
         success: false,
@@ -300,10 +326,31 @@ const loginEmployee = async (req, res) => {
       });
     }
 
-  console.log("type employee pas", employee.personalDetails.password);
-console.log("type pas", password);
+    const stored = employee.personalDetails.password;
+    const isHashed = /^\$2[aby]\$/.test(stored);
 
-    if (employee.personalDetails.password !== password) {
+    let valid;
+    if (isHashed) {
+      valid = await bcrypt.compare(password, stored);
+    } else {
+      // Legacy row still holding a plaintext password. Accept it once, then
+      // upgrade it in place so the next login goes through bcrypt. Remove this
+      // branch once scripts/hashEmployeePasswords.js has run everywhere.
+      valid = stored === password;
+      if (valid) {
+        // updateOne, not save(): save() revalidates the whole document, so a
+        // row with pre-existing invalid data could never log in again.
+        await Employee.updateOne(
+          { _id: employee._id },
+          { $set: { "personalDetails.password": await bcrypt.hash(password, 10) } },
+        );
+        console.warn(
+          `Upgraded plaintext password to bcrypt for ${employee.personalDetails.employeeId}`,
+        );
+      }
+    }
+
+    if (!valid) {
       return res.status(401).json({
         success: false,
         message: "Invalid credentials",
@@ -317,7 +364,7 @@ console.log("type pas", password);
       success: true,
       message: "Login successful",
       token,
-      employee,
+      employee: sanitizeEmployee(employee),
     });
   } catch (err) {
     console.error(err);

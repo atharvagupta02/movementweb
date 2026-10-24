@@ -6,9 +6,9 @@ import employeeAuth from "../middleware/employeeAuth.js";
 
 const enquiryRouter = express.Router();
 
-enquiryRouter.post("/createEnquiry" , createEnquiry );
-enquiryRouter.get("/getEnquiry" , getEnquiry );
-enquiryRouter.get("/getPatientAttendanceEnquiry" , getPatientAttendanceEnquiry );
+enquiryRouter.post("/createEnquiry", employeeAuth, createEnquiry);
+enquiryRouter.get("/getEnquiry", employeeAuth, getEnquiry);
+enquiryRouter.get("/getPatientAttendanceEnquiry", employeeAuth, getPatientAttendanceEnquiry);
 enquiryRouter.get("/getPersonalDetails" , auth , getPersonalDetails );
 enquiryRouter.delete("/deleteEnquiryById/:id" , employeeAuth , deleteEnquiryById );
 

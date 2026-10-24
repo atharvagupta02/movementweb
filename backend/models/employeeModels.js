@@ -39,6 +39,7 @@ const EmployeeSchema = new mongoose.Schema(
       password: {
         type: String,
         required: true,
+        select: false, // never returned unless explicitly re-selected
       },
       workingBranch: { type: String, required: true },
       status: {
@@ -83,6 +84,23 @@ const EmployeeSchema = new mongoose.Schema(
         ref: "Attendance",
       },
     ],
+    totp: {
+      secret: {
+        type: String,
+        select: false, // base32 TOTP seed - never leaves the server
+      },
+      enabled: {
+        type: Boolean,
+        default: false,
+      },
+      enrolledAt: {
+        type: Date,
+      },
+      lastCounter: {
+        type: Number,
+        select: false, // blocks replay of an already-used 30s code
+      },
+    },
   },
   { timestamps: true },
 );
