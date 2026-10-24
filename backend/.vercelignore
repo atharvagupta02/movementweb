@@ -1,0 +1,7 @@
+# Never upload secrets or things the running API does not need.
+.env
+.env.*
+!.env.example
+node_modules
+scripts
+*.test.js
