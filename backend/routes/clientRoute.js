@@ -1,11 +1,11 @@
 import express from "express";
 import {getNeurologicalClient , getMusculoskeletalClient , getObesityClient , getPilatesClient} from "../controllers/clientController.js";
-import auth from "../middleware/auth.js";
+import employeeAuth from "../middleware/employeeAuth.js";
 const clientRouter = express.Router();
 
-clientRouter.get("/getNeurologicalClient",auth,getNeurologicalClient);
-clientRouter.get("/getMusculoskeletalClient",auth ,getMusculoskeletalClient );
-clientRouter.get("/getObesityClient",auth ,getObesityClient );
-clientRouter.get("/getPilatesClient",auth ,getPilatesClient );
+clientRouter.get("/getNeurologicalClient", employeeAuth, getNeurologicalClient);
+clientRouter.get("/getMusculoskeletalClient", employeeAuth, getMusculoskeletalClient );
+clientRouter.get("/getObesityClient", employeeAuth, getObesityClient );
+clientRouter.get("/getPilatesClient", employeeAuth, getPilatesClient );
 
 export default clientRouter;

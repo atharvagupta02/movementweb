@@ -1,6 +1,5 @@
 import express from "express";
 
-import auth from "../middleware/auth.js";
 import {
   createNeurologicalForm,
   createMusculoskeletalForm,
@@ -26,15 +25,15 @@ assessmentRouter.post("/obesity",employeeAuth , createObesityForm);
 assessmentRouter.post("/pilates",employeeAuth ,  createPilatesForm);
 
 // get router
-assessmentRouter.get("/getneurological/:id", auth, getNeurologicalForm);
-assessmentRouter.get("/getmusculoskeletal/:id", auth, getMusculoskeletalForm);
-assessmentRouter.get("/getobesity/:id", auth, getObesityForm);
-assessmentRouter.get("/getpilates/:id", auth, getPilatesForm);
+assessmentRouter.get("/getneurological/:id", employeeAuth, getNeurologicalForm);
+assessmentRouter.get("/getmusculoskeletal/:id", employeeAuth, getMusculoskeletalForm);
+assessmentRouter.get("/getobesity/:id", employeeAuth, getObesityForm);
+assessmentRouter.get("/getpilates/:id", employeeAuth, getPilatesForm);
 
 // update router
-assessmentRouter.put("/updateNeurological/:id", auth, updateNeurologicalForm);
-assessmentRouter.put("/updateMusculoskeletal/:id", auth, updateMusculoskeletalForm);
-assessmentRouter.put("/updateObesity/:id", auth, updateObesityForm);
-assessmentRouter.put("/updatePilates/:id", auth, updatePilatesForm);
+assessmentRouter.put("/updateNeurological/:id", employeeAuth, updateNeurologicalForm);
+assessmentRouter.put("/updateMusculoskeletal/:id", employeeAuth, updateMusculoskeletalForm);
+assessmentRouter.put("/updateObesity/:id", employeeAuth, updateObesityForm);
+assessmentRouter.put("/updatePilates/:id", employeeAuth, updatePilatesForm);
 
 export default assessmentRouter;

@@ -1,28 +1,32 @@
 import express from "express";
 import {createEmployee , addEmployee, getAllEmployee, updateAttendance  , getEmployeeById , updateEmployee , deleteEmployeeById , loginEmployee} from "../controllers/employeeController.js";
 import employeeAuth from "../middleware/employeeAuth.js";
+import adminOnly from "../middleware/adminOnly.js";
 const router = express.Router();
 
 // Add employee
-router.post("/addEmployee", addEmployee );
+router.post("/addEmployee", employeeAuth, adminOnly, addEmployee);
 
 // Update attendance
-router.post("/update-attendance", updateAttendance);
+// Superseded by POST /api/attendance/markEmployee, which is admin-gated and
+// writes proper Attendance records. Kept reachable for any old client, but
+// no longer open to the world.
+router.post("/update-attendance", employeeAuth, adminOnly, updateAttendance);
 
 // create employee
-router.post("/createEmployee" , employeeAuth ,  createEmployee);
+router.post("/createEmployee", employeeAuth, adminOnly, createEmployee);
 
 // Get all employees
-router.get("/getAllEmployee", getAllEmployee);
+router.get("/getAllEmployee", employeeAuth, adminOnly, getAllEmployee);
 
 // get employee by ID
-router.get("/getEmployeeById/:id" , getEmployeeById);
+router.get("/getEmployeeById/:id", employeeAuth, adminOnly, getEmployeeById);
 
 // update by id
-router.put("/updateEmployee/:id" , updateEmployee);
+router.put("/updateEmployee/:id", employeeAuth, adminOnly, updateEmployee);
 
 // delete employee
-router.delete("/deleteEmployee/:id" , deleteEmployeeById);
+router.delete("/deleteEmployee/:id", employeeAuth, adminOnly, deleteEmployeeById);
 
 // for login employee
 router.post("/loginEmployee" , loginEmployee);
