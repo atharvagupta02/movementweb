@@ -41,6 +41,8 @@ Vercel's servers have changing addresses, so Atlas must accept connections from 
 
 Do **not** set `PORT`. See `backend/.env.example` for the same list with explanations.
 
+The backend declares Node **24.x** (`backend/package.json`), which Vercel now requires for new builds. If Vercel offers a Node.js version setting, leave it on 24.x.
+
 ### A3. Check it works
 Open `https://<your-project>.vercel.app/` — it should say **API working**.
 
