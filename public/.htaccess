@@ -1,0 +1,19 @@
+# Hostinger (Apache): single-page app routing.
+# Without this, refreshing /attendence or opening /daily-attendance directly
+# returns a 404, because those paths are routes inside the app, not real files.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Always fetch the entry page fresh so a new deploy shows up immediately.
+# (The hashed files under /assets are safe for the browser to cache.)
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
