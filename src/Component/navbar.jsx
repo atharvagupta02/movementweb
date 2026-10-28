@@ -46,7 +46,7 @@ const Logo = ({ className = "h-9" }) => {
 
   return (
     <img
-      src="/logo.png"
+      src="/logo.jpeg"
       alt="Movement Rehab"
       className={`${className} w-auto`}
       onError={() => setFailed(true)}

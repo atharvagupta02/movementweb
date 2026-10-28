@@ -35,7 +35,11 @@ const fromFile = (file) => {
 // Shell values win, then .env.production. Plain .env is deliberately ignored:
 // it holds the development settings.
 const prod = fromFile(".env.production");
-const backend = (process.env.VITE_BACKEND_URL ?? prod.VITE_BACKEND_URL ?? "").replace(/\/+$/, "");
+// Vercel's project URL is the API origin. A stale Hostinger setting sometimes
+// includes `/app`, which makes requests target `/app/api/...` and return HTML.
+const backend = (process.env.VITE_BACKEND_URL ?? prod.VITE_BACKEND_URL ?? "")
+  .replace(/\/+$/, "")
+  .replace(/\/app$/i, "");
 const adminEmail = process.env.VITE_ADMIN_EMAIL ?? prod.VITE_ADMIN_EMAIL ?? "";
 
 const fail = (message) => {
@@ -45,6 +49,7 @@ const fail = (message) => {
 
 if (!backend) fail("VITE_BACKEND_URL is not set (your deployed backend, e.g. https://your-api.vercel.app).");
 if (!/^https:\/\//i.test(backend)) fail(`VITE_BACKEND_URL must start with https:// (got "${backend}").`);
+if (new URL(backend).pathname !== "/") fail(`VITE_BACKEND_URL must be the API origin only, without a path (got "${backend}").`);
 if (/localhost|127\.0\.0\.1|\[::1\]/i.test(backend)) fail(`VITE_BACKEND_URL points at this computer ("${backend}").`);
 if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) fail("VITE_ADMIN_EMAIL is not set to the owner's email address.");
 
