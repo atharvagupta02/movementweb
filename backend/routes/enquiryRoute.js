@@ -10,6 +10,6 @@ enquiryRouter.post("/createEnquiry", employeeAuth, createEnquiry);
 enquiryRouter.get("/getEnquiry", employeeAuth, getEnquiry);
 enquiryRouter.get("/getPatientAttendanceEnquiry", employeeAuth, getPatientAttendanceEnquiry);
 enquiryRouter.get("/getPersonalDetails" , auth , getPersonalDetails );
-enquiryRouter.delete("/deleteEnquiryById/:id" , employeeAuth , deleteEnquiryById );
+enquiryRouter.delete("/deleteEnquiryById/:id" , employeeAuth, deleteEnquiryById );
 
 export default enquiryRouter;

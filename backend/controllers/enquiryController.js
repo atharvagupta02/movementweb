@@ -9,6 +9,7 @@ import NeurologicalForm from "../models/neurologicalAssessmentModels.js";
 import MusculoskeletalForm from "../models/musculoskeletalAssessmentModels.js";
 import ObesityForm from "../models/obesityAssessmentModels.js";
 import PilatesPhysioForm from "../models/pilatesAssessmentModels.js";
+import { archiveForRecycleBin } from "../utils/archiveForRecycleBin.js";
 
 // Create token based on contactNumber
 const createToken = (contactNumber) => {
@@ -252,34 +253,38 @@ const deleteEnquiryById = async (req, res) => {
       });
     }
 
-    // 🔴 Only if enquiry is patient
+    const records = [{ model: enquiryModel, document: enquiry }];
+
+    // Preserve a patient's complete history as one restorable recycle-bin item.
     if (enquiry.enquiryStatus === "patient" && enquiry.patientId) {
       const patientId = enquiry.patientId;
-
-      // ✅ Delete ALL assessments by patientId
-      await NeurologicalForm.deleteMany({ patientId }, { session });
-      await MusculoskeletalForm.deleteMany({ patientId }, { session });
-      await ObesityForm.deleteMany({ patientId }, { session });
-      await PilatesPhysioForm.deleteMany({ patientId }, { session });
-
-      // ✅ Delete treatment, attendance, billing
-      await TreatmentPlan.deleteMany({ patientId }, { session });
-      await Attendance.deleteMany({ id: patientId }, { session });
-      await Bill.deleteMany({ patientId }, { session });
-
-      // ✅ Delete patient
-      await Patient.findByIdAndDelete(patientId).session(session);
+      const related = await Promise.all([
+        Patient.findById(patientId).session(session),
+        NeurologicalForm.find({ patientId }).session(session),
+        MusculoskeletalForm.find({ patientId }).session(session),
+        ObesityForm.find({ patientId }).session(session),
+        PilatesPhysioForm.find({ patientId }).session(session),
+        TreatmentPlan.find({ patientId }).session(session),
+        Attendance.find({ id: patientId }).session(session),
+        Bill.find({ patientId }).session(session),
+      ]);
+      const [patient, neurological, musculoskeletal, obesity, pilates, plans, attendance, bills] = related;
+      for (const [model, docs] of [[Patient, patient ? [patient] : []], [NeurologicalForm, neurological], [MusculoskeletalForm, musculoskeletal], [ObesityForm, obesity], [PilatesPhysioForm, pilates], [TreatmentPlan, plans], [Attendance, attendance], [Bill, bills]]) {
+        records.push(...docs.map((document) => ({ model, document })));
+      }
     }
 
-    // ✅ Delete enquiry
-    await enquiryModel.findByIdAndDelete(req.params.id).session(session);
+    await archiveForRecycleBin({ label: `Enquiry: ${enquiry.patientName}`, records, deletedBy: req.id, session });
+    const grouped = new Map();
+    for (const record of records) grouped.set(record.model, [...(grouped.get(record.model) || []), record.document._id]);
+    for (const [model, ids] of grouped) await model.deleteMany({ _id: { $in: ids } }, { session });
 
     await session.commitTransaction();
     session.endSession();
 
     res.status(200).json({
       success: true,
-      message: "Enquiry and ALL related patient data deleted successfully",
+      message: "Enquiry and related records moved to the recycle bin",
     });
   } catch (error) {
     await session.abortTransaction();

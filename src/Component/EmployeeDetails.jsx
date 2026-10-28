@@ -972,7 +972,7 @@ const EmployeeDetails = () => {
   };
 
   const handleDeleteEmployee = async () => {
-    if (!window.confirm("Delete this employee permanently? This cannot be undone."))
+    if (!window.confirm("Move this employee to the recycle bin? The owner can restore or permanently delete it."))
       return;
     setDeleting(true);
     try {

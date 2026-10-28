@@ -2,6 +2,7 @@ import User from "../models/userModels.js"; // ✅ FIX NAME
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import validator from "validator";
+import { archiveForRecycleBin } from "../utils/archiveForRecycleBin.js";
 
 export const createUser = async (req, res) => {
   try {
@@ -98,8 +99,11 @@ export const getUser = async (req, res) => {
 
 export const deleteUser = async (req, res) => {
   try {
-    await User.findByIdAndDelete(req.params.userId);
-    res.status(200).json({ message: "User deleted successfully" });
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    await archiveForRecycleBin({ label: `User: ${user.name || user.email || user._id}`, records: [{ model: User, document: user }], deletedBy: req.id });
+    await user.deleteOne();
+    res.status(200).json({ success: true, message: "User moved to the recycle bin" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -11,6 +11,7 @@ import employeeRouter from "./routes/employeeRoute.js";
 import treatmentPlanRouter from "./routes/treatmentPlanRoute.js";
 import attendanceRouter from "./routes/attendanceRoute.js";
 import connectDb from "./config/mongodb.js";
+import recycleBinRouter from "./routes/recycleBinRoute.js";
 
 //App config
 const app = express();
@@ -75,6 +76,7 @@ app.use("/api/report", reportRouter);
 app.use("/api/employee", employeeRouter);
 app.use("/api/treatmentPlan", treatmentPlanRouter);
 app.use("/api/attendance",attendanceRouter );
+app.use("/api/recycle-bin", recycleBinRouter);
 
 
 export default app;

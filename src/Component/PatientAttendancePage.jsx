@@ -49,11 +49,35 @@ const authHeaders = (token = readToken()) => ({
   ...(token ? { token } : {}),
 });
 
+// Marking attendance also sends where the phone is, so the clinic can insist
+// on being there. A fresh reading is asked for each time (never a remembered one).
+const PUNCH_PATHS = ["/api/attendance/punch", "/api/attendance/selfCheckIn", "/api/attendance/patient/punch"];
+let lastLocationProblem = "";
+
+const getLocation = () =>
+  new Promise((resolve) => {
+    lastLocationProblem = "";
+    if (!navigator.geolocation) {
+      lastLocationProblem = "unsupported";
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }),
+      (err) => {
+        lastLocationProblem = err.code === 1 ? "denied" : "unavailable";
+        resolve(null);
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 },
+    );
+  });
+
 const request = async (method, path, payload, token) => {
+  const location = PUNCH_PATHS.includes(path) ? await getLocation() : null;
   const res = await fetch(`${API}${path}`, {
     method,
     headers: authHeaders(token),
-    ...(payload ? { body: JSON.stringify(payload) } : {}),
+    ...(payload ? { body: JSON.stringify(location ? { ...payload, location } : payload) } : {}),
   });
   const body = await res.json().catch(() => ({}));
   return { ok: res.ok, status: res.status, body };
@@ -75,6 +99,24 @@ const fmtWorked = (minutes) =>
 
 /** Turns a failed response into a message worth showing. */
 const readError = (status, body) => {
+  if (body?.code === "LOCATION_REQUIRED") {
+    if (lastLocationProblem === "denied") {
+      return "Location is blocked. Allow location for this site in your browser settings, then try again.";
+    }
+    if (lastLocationProblem === "unavailable") {
+      return "Could not get your location. Turn on GPS and try again.";
+    }
+    return "Turn on location for this site to mark attendance, then try again.";
+  }
+  if (body?.code === "LOCATION_TOO_VAGUE") {
+    return "Your location is not precise enough. Turn on GPS, or step near a window, and try again.";
+  }
+  if (body?.code === "OUTSIDE_CLINIC_AREA") {
+    return body.message || "Attendance can only be marked at the clinic.";
+  }
+  if (body?.code === "CLINIC_LOCATION_NOT_CONFIGURED") {
+    return "Attendance is not set up yet. Ask the owner to set the clinic location.";
+  }
   if (body?.code === "OUTSIDE_CLINIC_NETWORK") {
     return "Attendance can only be marked on the clinic's WiFi. Connect to it and try again.";
   }

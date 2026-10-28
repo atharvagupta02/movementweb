@@ -10,100 +10,63 @@ import { Link } from "react-router-dom";
 /*
   Dashboard (home page "/").
 
-  HOW TO CONNECT YOUR REAL DATA
-  1. Set USE_DEMO_DATA = false.
-  2. Put your real endpoints in API below (the paths are placeholders).
-  3. If a response uses different field names, adjust the normalize* functions.
-  Sections whose data cannot be loaded hide themselves instead of breaking the page.
+  Numbers come from the live API. Billing and staff figures are owner-only, so for
+  anyone else those cards hide or swap instead of breaking the page.
 */
-
-const USE_DEMO_DATA = true; // true = show sample data so you can preview the design
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL;
 const API = {
-  enquiries: "/api/enquiry/getAllEnquiries", // TODO: your "all enquiries" endpoint
-  billing: "/api/reports/billSummary", // TODO: totals for billed / received / outstanding
-  attendance: "/api/reports/dailyAttendance", // TODO: today's patient attendance
-  employees: "/api/employee/getAllEmployees", // TODO: your employee list endpoint
+  enquiries: "/api/enquiry/getEnquiry", // any signed-in staff; paged
+  billing: "/api/report/summary", // owner only
+  employees: "/api/employee/getAllEmployee", // owner only
 };
+const PAGE_SIZE = 100;
+const MAX_PAGES = 30;
 
 /* ------------------------------ data layer ------------------------------ */
 
-const authHeaders = () => {
-  const token = localStorage.getItem("webapptoken");
-  return token ? { Authorization: `Bearer ${token}` } : {}; // TODO: match how your other pages send the token
-};
-
 const getJson = async (path) => {
-  const res = await fetch(`${BACKEND}${path}`, { headers: authHeaders() });
+  const res = await fetch(`${BACKEND}${path}`, { headers: { token: localStorage.getItem("webapptoken") || "" } });
   if (!res.ok) throw new Error(`Request failed (${res.status})`);
   return res.json();
 };
 
-const list = (r) => (Array.isArray(r) ? r : r?.data || r?.enquiries || r?.employees || []);
-
 const normalizeEnquiry = (r, i) => ({
-  id: r._id || r.id || i,
-  name: r.patientName || r.name || "-",
-  phone: r.contactNumber || r.phone || "",
-  complaint: r.chiefComplaint || r.complaint || "",
-  status: r.patientId || r.isPatient || r.status === "Patient" ? "Patient" : "Lead",
-  createdAt: r.createdAt || r.date || null,
+  id: r._id || i,
+  name: r.patientName || "-",
+  phone: r.contactNumber || "",
+  complaint: r.chiefComplaint || "",
+  status: r.enquiryStatus === "patient" ? "Patient" : "Lead",
+  createdAt: r.createdAt || null,
 });
 
+// The list endpoint is paged, so walk the pages and stop at the last one.
+const loadEnquiries = async () => {
+  const all = [];
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const r = await getJson(`${API.enquiries}?page=${page}&limit=${PAGE_SIZE}`);
+    all.push(...(r.enquiries || []));
+    if (!r.pagination?.hasNextPage) break;
+  }
+  return all.map(normalizeEnquiry);
+};
+
 const normalizeBilling = (r) => {
-  const d = r?.data || r || {};
-  const billed = Number(d.totalBilled ?? d.billed ?? 0);
-  const received = Number(d.received ?? 0);
-  const outstanding = Number(d.outstanding ?? billed - received);
-  return { billed, received, outstanding };
-};
-
-const normalizeAttendance = (r) => {
-  const d = r?.data || r || {};
-  return { patients: Number(d.patientsAttended ?? d.patients ?? 0), visits: Number(d.totalVisits ?? d.visits ?? 0) };
-};
-
-const NAMES = ["Anil Verma", "Meena Joshi", "Karan Mehta", "Sita Rathore", "Vikram Sethi", "Nisha Dubey", "Rohit Jain", "Pooja Nair", "Amit Sharma", "Kavita Rao", "Sunil Patel", "Neha Gupta"];
-const COMPLAINTS = ["Right side hemiplegia", "Frozen shoulder", "ACL rehab", "Low back pain", "Knee pain", "Neck pain", "Sciatica", "Post-fracture rehab"];
-
-const demoData = () => {
-  const now = new Date();
-  const enquiries = Array.from({ length: 63 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - (i % 6), Math.max(1, 28 - ((i * 7) % 27)), 10);
-    if (d > now) d.setTime(now.getTime() - (i + 1) * 5 * 3600e3);
-    return {
-      id: i,
-      name: NAMES[i % 12],
-      phone: `98${26000000 + i * 7311}`,
-      complaint: COMPLAINTS[i % 8],
-      status: i % 9 < 4 ? "Patient" : "Lead",
-      createdAt: d.toISOString(),
-    };
-  });
-  return {
-    enquiries,
-    billing: { billed: 621137, received: 605637, outstanding: 15500 },
-    attendance: { patients: 6, visits: 8 },
-    employees: { active: 4, total: 5 },
-  };
+  const income = r?.data?.income || {};
+  const billed = Number(income.billed || 0);
+  const received = Number(income.received || 0);
+  return { billed, received, outstanding: Number(income.pending ?? billed - received) };
 };
 
 const loadData = async () => {
-  if (USE_DEMO_DATA) return demoData();
-  const [e, b, a, m] = await Promise.allSettled([
-    getJson(API.enquiries),
-    getJson(API.billing),
-    getJson(API.attendance),
-    getJson(API.employees),
-  ]);
-  const emps = m.status === "fulfilled" ? list(m.value) : null;
+  const [e, b, m] = await Promise.allSettled([loadEnquiries(), getJson(API.billing), getJson(API.employees)]);
+  const emps = m.status === "fulfilled" ? m.value.employees || [] : null;
   return {
-    enquiries: e.status === "fulfilled" ? list(e.value).map(normalizeEnquiry) : null,
+    enquiries: e.status === "fulfilled" ? e.value : null,
+    // Money and staff figures are owner-only; for anyone else these stay hidden.
     billing: b.status === "fulfilled" ? normalizeBilling(b.value) : null,
-    attendance: a.status === "fulfilled" ? normalizeAttendance(a.value) : null,
     employees: emps
-      ? { total: emps.length, active: emps.filter((x) => (x.status || x.employeeStatus || "Active") === "Active").length }
+      ? { total: emps.length, active: emps.filter((x) => (x.personalDetails?.status || "Active") === "Active").length }
       : null,
   };
 };
@@ -304,7 +267,7 @@ const Dashboard = () => {
       <div className="mx-auto w-full max-w-7xl p-4 sm:p-6">
         <Card className="mx-auto max-w-lg text-center">
           <p className="text-lg font-bold text-slate-800">Could not load the dashboard</p>
-          <p className="mt-1 text-sm text-slate-500">Check your connection and the API paths at the top of Dashboard.jsx, then try again.</p>
+          <p className="mt-1 text-sm text-slate-500">Check your connection, then try again.</p>
           <button
             onClick={() => setReload((n) => n + 1)}
             className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#0B4BAA] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#093d8c] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00C2CB] focus-visible:ring-offset-2"
@@ -316,7 +279,8 @@ const Dashboard = () => {
     );
   }
 
-  const { billing, attendance, employees } = data;
+  const { billing, employees } = data;
+  const thisMonth = stats.months[stats.months.length - 1].count;
   const collected = billing && billing.billed ? Math.min(100, Math.round((billing.received / billing.billed) * 100)) : 0;
 
   const actions = [
@@ -335,9 +299,6 @@ const Dashboard = () => {
           <div>
             <p className="flex items-center gap-2 text-sm font-medium text-blue-100/80">
               {today}
-              {USE_DEMO_DATA && (
-                <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold text-white">Demo data</span>
-              )}
             </p>
             <h2 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
               {greeting()}, {firstName}
@@ -363,7 +324,7 @@ const Dashboard = () => {
 
           <div className="grid grid-cols-2 gap-3 sm:max-w-sm">
             {[
-              { label: "Visits today", value: attendance ? attendance.visits : "-" },
+              { label: "New this month", value: thisMonth },
               { label: "Conversion", value: `${stats.conversion}%` },
             ].map((s) => (
               <div key={s.label} className="rounded-2xl bg-white/10 px-5 py-4 ring-1 ring-white/15 backdrop-blur">
@@ -380,13 +341,11 @@ const Dashboard = () => {
         <Kpi icon={ICONS.inbox} tone="blue" label="Total Enquiries" value={stats.total} note="All time" />
         <Kpi icon={ICONS.heart} tone="cyan" label="Active Patients" value={stats.patients} note={`${stats.conversion}% of enquiries converted`} />
         <Kpi icon={ICONS.phone} tone="amber" label="Open Leads" value={stats.leads} note="Need a follow-up call" />
-        <Kpi
-          icon={ICONS.rupee}
-          tone="rose"
-          label="Outstanding Dues"
-          value={billing ? inr(billing.outstanding) : "-"}
-          note={billing ? "Still to collect" : "Billing data not available"}
-        />
+        {billing ? (
+          <Kpi icon={ICONS.rupee} tone="rose" label="Outstanding Dues" value={inr(billing.outstanding)} note="Still to collect" />
+        ) : (
+          <Kpi icon={ICONS.users} tone="rose" label="New this month" value={thisMonth} note="Enquiries received" />
+        )}
       </section>
 
       {/* Charts */}

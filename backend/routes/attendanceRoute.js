@@ -24,6 +24,7 @@ import {
 
 import employeeAuth from "../middleware/employeeAuth.js";
 import clinicIp from "../middleware/clinicIp.js";
+import clinicLocation from "../middleware/clinicLocation.js";
 import adminOnly from "../middleware/adminOnly.js";
 
 const attendanceRouter = express.Router();
@@ -58,18 +59,18 @@ attendanceRouter.post("/totp/confirm-for", employeeAuth, adminOnly, confirmTotpF
 // The punch itself: logged in (employeeAuth) + on the clinic network
 // (clinicIp) + holding the enrolled phone (TOTP code, checked in selfCheckIn).
 attendanceRouter.get("/me/today", employeeAuth, myAttendanceToday);
-attendanceRouter.post("/selfCheckIn", employeeAuth, clinicIp, selfCheckIn);
+attendanceRouter.post("/selfCheckIn", employeeAuth, clinicIp, clinicLocation, selfCheckIn);
 
 // --- Attendance portal: no session needed, the ID plus a proof identifies them ---
 
 // Staff: Employee ID + authenticator code. First call of the day checks in and
 // logs in, the second checks out. Clinic network only.
-attendanceRouter.post("/punch", clinicIp, employeePunch);
+attendanceRouter.post("/punch", clinicIp, clinicLocation, employeePunch);
 
 // The signed-in employee's own month for their dashboard.
 attendanceRouter.get("/me/month", employeeAuth, myAttendanceMonth);
 
 // Patients: Patient ID + registered mobile number. Clinic network only.
-attendanceRouter.post("/patient/punch", clinicIp, patientPunch);
+attendanceRouter.post("/patient/punch", clinicIp, clinicLocation, patientPunch);
 
 export default attendanceRouter;

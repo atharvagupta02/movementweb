@@ -2,6 +2,7 @@ import Employee from "../models/employeeModels.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import sanitizeEmployee from "../utils/sanitizeEmployee.js";
+import { archiveForRecycleBin } from "../utils/archiveForRecycleBin.js";
 
 const addEmployee = async (req, res) => {
   const { name, role } = req.body;
@@ -290,10 +291,11 @@ const deleteEmployeeById = async (req, res) => {
       });
     }
 
+    await archiveForRecycleBin({ label: `Employee: ${employee.personalDetails.fullName}`, records: [{ model: Employee, document: employee }], deletedBy: req.id });
     await Employee.findByIdAndDelete(req.params.id);
     res.status(200).json({
       success: true,
-      message: "Employee deleted successfully",
+      message: "Employee moved to the recycle bin",
     });
   } catch (err) {
     console.error(err);

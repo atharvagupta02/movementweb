@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+.git
+node_modules
+dist
+backend
+scripts
+*.zip
+*.pdf

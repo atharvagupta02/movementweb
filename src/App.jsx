@@ -585,6 +585,7 @@ import CreateBill from "./Component/CreateBill.jsx";
 import PatientAttendancePage from "./Component/PatientAttendancePage.jsx";
 import Enquiry from "./Component/Enquiry.jsx";
 import Newbill from "./Component/Newbill.jsx";
+import RecycleBin from "./Component/RecycleBin.jsx";
 
 // ======================================================
 // GLOBAL BACK BUTTON
@@ -918,6 +919,8 @@ function App() {
         {/* Employee and patient check-in/out. Public on purpose: the
             employee's start-of-day code is what logs them in. */}
         <Route path="/daily-attendance" element={<PatientAttendancePage />} />
+
+        <Route path="/recycle-bin" element={<ProtectedRoute><ProtectedRouteAdmin><RecycleBin /></ProtectedRouteAdmin></ProtectedRoute>} />
 
         {/* Staff roster - owner only (also enforced by the API). */}
         <Route

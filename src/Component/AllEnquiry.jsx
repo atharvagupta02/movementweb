@@ -1334,7 +1334,7 @@ const AllEnquiry = () => {
       const result = await response.json();
 
       if (result?.success) {
-        showToast("Enquiry deleted successfully");
+        showToast("Enquiry moved to the recycle bin");
         refreshAll();
         closeEditModal();
       } else {

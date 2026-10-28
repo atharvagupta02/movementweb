@@ -26,6 +26,7 @@ const ICONS = {
   list: "M9 3h6a1 1 0 011 1v1H8V4a1 1 0 011-1zM8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 12h6M9 16h6",
   users: "M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2M10 11a4 4 0 100-8 4 4 0 000 8zM21 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75",
   chart: "M3 3v18h18M7 15l4-4 3 3 5-6",
+  trash: "M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14M10 10v6m4-6v6",
   logout: "M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9",
   menu: "M4 6h16M4 12h16M4 18h16",
   chevron: "M15 18l-6-6 6-6",
@@ -141,6 +142,7 @@ const NavigationTabs = () => {
       title: "Staff Attendance",
       adminOnly: true,
     },
+    { name: "Recycle Bin", path: "/recycle-bin", icon: ICONS.trash, title: "Recycle Bin", adminOnly: true },
   ];
 
   // Owner-only tabs are not shown to anyone else (the API refuses them too).
